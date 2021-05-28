@@ -1,13 +1,13 @@
-package com.oncrs.dto;
+package com.oncrs.dtos;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
-@NoArgsConstructor
 @AllArgsConstructor
-public class LoginDetailsDTO {
-	String userId;
-	Integer roleId;
+@NoArgsConstructor
+public class ResponseDTO {
+	Object object;
+	String message;
 }
