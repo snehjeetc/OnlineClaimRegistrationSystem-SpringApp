@@ -30,7 +30,7 @@ public class ApplicationSecurityConfig extends WebSecurityConfigurerAdapter{
 		http
 			.csrf().disable()
 			.authorizeRequests()
-			.antMatchers("/login").permitAll()
+			.antMatchers("/oncrs/login").permitAll()
 			.antMatchers("/registration/*").hasRole(ApplicationUserRole.CLAIMADJUSTER.name())
 			.anyRequest()
 			.authenticated()

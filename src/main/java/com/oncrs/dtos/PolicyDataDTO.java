@@ -1,7 +1,5 @@
 package com.oncrs.dtos;
 
-import com.sun.istack.NotNull;
-
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -9,11 +7,9 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class LoginDetailsDTO {
-	
-	@NotNull
-	String userId;
-	@NotNull
-	String password;
-	String roleId;
+public class PolicyDataDTO {
+
+	private String userId;
+	private Long accountNumber;
+	private double premiumAmount;
 }
