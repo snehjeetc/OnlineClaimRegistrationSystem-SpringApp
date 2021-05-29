@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +14,7 @@ import org.springframework.stereotype.Service;
 import com.oncrs.auth.ApplicationUser;
 import com.oncrs.dtos.ClaimDataDTO;
 import com.oncrs.dtos.PolicyDataDTO;
+import com.oncrs.dtos.ReturnValue;
 import com.oncrs.dtos.UserInfoDTO;
 import com.oncrs.exception.PolicyException;
 import com.oncrs.exception.PolicyException.PolicyExceptionType;
@@ -23,6 +23,7 @@ import com.oncrs.exception.UserException.UserExceptionType;
 import com.oncrs.models.ClaimData;
 import com.oncrs.models.PolicyData;
 import com.oncrs.models.UserInfo;
+import com.oncrs.repositories.IUserInfoRepository;
 import com.oncrs.security.ApplicationUserRole;
 
 
@@ -35,72 +36,56 @@ public class UserService implements IUserService{
 	@Autowired
 	private IClaimDataService claimDataService;
 	
-	private List<UserInfo> userRepo;
-	private static AtomicLong autoGenerateToken;
+	@Autowired
+	private IUserInfoRepository userRepo;
 	
 	private final PasswordEncoder passwordEncoder;
-	
-	static {
-		autoGenerateToken = new AtomicLong();
-	}
 	
 	@Autowired
 	public UserService(PasswordEncoder passwordEncoder) {
 		this.passwordEncoder = passwordEncoder;
-		this.userRepo = new ArrayList<>();
-		this.userRepo.add(new UserInfo(autoGenerateToken.getAndIncrement(), "admin", this.passwordEncoder.encode("admin"), "CLAIMADJUSTER", null));
 	}
 	
 	@Override
 	public List<UserInfo> getUsers(){
-		return this.userRepo;
+		return this.userRepo.findAll();
 	}
 
 	@Override
 	public UserInfoDTO registerUser(UserInfo newUser) {
-		UserInfoDTO userGen;
-		if(this.isValidUser(newUser)) {
-			newUser.setUserNo(autoGenerateToken.getAndIncrement());
-			String password = newUser.getPassword();
-			newUser.setPassword(passwordEncoder.encode(password));
-			this.userRepo.add(newUser);
-			userGen = new UserInfoDTO(newUser.getUserId(), newUser.getRole(), null);
+		
+		if(newUser.getUserId().toUpperCase().equals("ADMIN"))
+			throw new UserException(UserExceptionType.USER_ALREADY_EXISTS,
+									"UserId can't be admin");
+	
+		Optional<UserInfo> existingUser = this.userRepo.findByUserId(newUser.getUserId());
+		
+		if(existingUser.get() == null) {
+			newUser.setPassword(this.passwordEncoder.encode(newUser.getPassword()));
+			UserInfo userGen = this.userRepo.save(newUser);
+			return new UserInfoDTO(
+						userGen.getUserId(),
+						userGen.getRole(),
+						userGen.getPolicies());
 		}
 		else 
 			throw new UserException(UserExceptionType.USER_ALREADY_EXISTS,
 									"User with " + newUser.getUserId() + " already exists");
-		return userGen;
-	}
-
-	private Boolean isValidUser(UserInfo newUser) {
-		UserInfo userExisting = this.userRepo.stream()
-										.filter(user -> {
-											return user.getUserId().equals(newUser.getUserId())
-													&& user.getPassword().equals(newUser.getPassword());
-										})
-										.findFirst()
-										.orElse(null);
-		if(userExisting == null)
-			return true;
-		return false;
 	}
 	
 	@Override
 	public Optional<ApplicationUser> loadUserByUserName(String username){
 		
-		return this.userRepo.stream()
-									.filter(user -> username.equals(user.getUserId()))
-									.map(user -> new ApplicationUser(
-											user.getUserId(),
-											user.getPassword(),
-											this.getAuthority(user.getRole()),
-											true,
-											true,
-											true,
-											true
-											)
-										)
-									.findFirst();
+		UserInfo user = this.currentUser(username);
+		return Optional.of(new ApplicationUser(
+				user.getUserId(),
+				user.getPassword(),
+				this.getAuthority(user.getRole()),
+				true,
+				true,
+				true,
+				true
+				));
 	}
 	
 	private Set<? extends GrantedAuthority> getAuthority(String userRole){
@@ -115,67 +100,69 @@ public class UserService implements IUserService{
 	}
 
 	@Override
-	public List<PolicyData> getPolicies(String userid) {
+	public ReturnValue getPolicies(String userid) {
 		
 		UserInfo currentUser = this.currentUser(userid);
-		if(currentUser == null)
-			return null;
-		return currentUser.getPolicies();
+		return new ReturnValue(
+				currentUser.getUserId(), 
+				currentUser.getRole(), 
+				currentUser.getPolicies());
 	}
 
 	@Override
-	public List<ClaimData> getClaims(String userid) {
-		
-		List<PolicyData> policiesOfUser = getPolicies(userid);
-		if(policiesOfUser == null)
-			throw new PolicyException(PolicyExceptionType.POLICIES_NOT_FOUND,
-										"No policies for the current user");
-		
-		List<ClaimData> userClaims = policiesOfUser
-											.stream()
-											.filter(policy -> policy.getClaimPolicy() != null)
-											.map(policy -> policy.getClaimPolicy())
-											.collect(Collectors.toList());
-		return userClaims;
+	public ReturnValue getClaims(String userid) {
+		UserInfo currentUser = this.currentUser(userid);
+		List<PolicyData> claimedPolicies = currentUser.getPolicies()
+													.stream()
+													.filter(policy -> policy.getClaimPolicy() != null)
+													.collect(Collectors.toList());
+		return new ReturnValue(
+				currentUser.getUserId(), 
+				currentUser.getRole(), 
+				claimedPolicies);
 	}
 
 	@Override
-	public UserInfoDTO createPolicy(PolicyDataDTO policy) {
-		
+	public UserInfoDTO createPolicy(PolicyDataDTO policy) {	
 		UserInfo currentUser = this.currentUser(policy.getUserId());
-		PolicyData createdPolicy = this.policyDataService.addPolicyData(policy, currentUser.getUserNo());
-		currentUser.addPolicyData(createdPolicy);
-		return new UserInfoDTO(currentUser.getUserId(), 
-							   currentUser.getRole(), 
-							   currentUser.getPolicies());
+		currentUser.addPolicyData(new PolicyData( 
+									0l,
+									policy.getAccountNumber(),
+									policy.getPremiumAmount(),
+									null));
+		
+		UserInfo updateUser = this.userRepo.save(currentUser);
+		return new UserInfoDTO(updateUser.getUserId(),
+							  updateUser.getRole(),
+							  updateUser.getPolicies());
 	}
 
 	@Override
 	public UserInfoDTO createClaim(ClaimDataDTO claim) {
-		
-		UserInfo currentUser = this.currentUser(claim.getUserId());
-		PolicyData claimedPolicy = currentUser.getPolicies()
-												.stream()
-												.filter(policy -> 
-														claim.getPolicyNumber()
-																.equals(policy.getPolicyNumber()))
-												.findFirst()
-												.orElseThrow(()->
-														new PolicyException(
-																PolicyExceptionType.POLICY_NOT_FOUND,
-																"Policy Number " + claim.getPolicyNumber() + " not found"));
-		
-		ClaimData claimed = this.policyDataService.claimPolicy(claim);
-		return new UserInfoDTO(currentUser.getUserId(), 
-							   currentUser.getRole(), 
-							   currentUser.getPolicies());
+		UserInfo user = this.currentUser(claim.getUserId());
+		this.policyDataService.claimPolicy(user.getUserNo(), claim);
+		user = this.currentUser(claim.getUserId());
+		return new UserInfoDTO(user.getUserId(),
+				  			   user.getRole(),
+				  			   user.getPolicies());
 	}
 
 	@Override
-	public ClaimData getClaim(String userId, Long claimNumber) {
+	public ReturnValue getClaim(String userId, Long claimNumber) {
 		
 		UserInfo currentUser = this.currentUser(userId);
-		return this.claimDataService.getClaim(claimNumber);
+		PolicyData policyData = currentUser.getPolicies()
+											.stream()
+											.filter(policy -> 
+												policy.getClaimPolicy()
+															.getClaimNo().equals(claimNumber))
+											.findFirst()
+											.orElseThrow(()->new PolicyException(
+													PolicyExceptionType.CLAIM_NOT_FOUND,
+													"Claim with " + claimNumber + " not found"));
+		return new ReturnValue(currentUser.getUserId(),
+							   currentUser.getRole(),
+							   policyData);
 	}
 	
 	@Override
@@ -187,13 +174,10 @@ public class UserService implements IUserService{
 	}
 	
 	private UserInfo currentUser(String currentUserId) {
-		return this.userRepo
-				.stream()
-				.filter(user -> currentUserId.equals(user.getUserId()))
-				.findFirst()
-				.orElseThrow(()-> 
-					new UserException(UserExceptionType.USER_NOT_FOUND,
-									"User with " + currentUserId + " not found"));
+		Optional<UserInfo> user = this.userRepo.findByUserId(currentUserId);
+		return user.orElseThrow(()->
+									new UserException(UserExceptionType.USER_NOT_FOUND,
+											"User with " + currentUserId + " not found"));
 	}
 	
 	

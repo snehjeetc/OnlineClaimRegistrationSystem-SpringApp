@@ -6,6 +6,7 @@ import java.util.Set;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+@SuppressWarnings("serial")
 public class ApplicationUser implements UserDetails {
 
 	private final String username;
