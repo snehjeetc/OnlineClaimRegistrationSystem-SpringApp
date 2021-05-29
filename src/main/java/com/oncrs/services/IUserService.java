@@ -8,8 +8,6 @@ import com.oncrs.dtos.ClaimDataDTO;
 import com.oncrs.dtos.PolicyDataDTO;
 import com.oncrs.dtos.ReturnValue;
 import com.oncrs.dtos.UserInfoDTO;
-import com.oncrs.models.ClaimData;
-import com.oncrs.models.PolicyData;
 import com.oncrs.models.UserInfo;
 
 public interface IUserService {

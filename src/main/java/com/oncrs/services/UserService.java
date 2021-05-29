@@ -1,6 +1,5 @@
 package com.oncrs.services;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -20,7 +19,6 @@ import com.oncrs.exception.PolicyException;
 import com.oncrs.exception.PolicyException.PolicyExceptionType;
 import com.oncrs.exception.UserException;
 import com.oncrs.exception.UserException.UserExceptionType;
-import com.oncrs.models.ClaimData;
 import com.oncrs.models.PolicyData;
 import com.oncrs.models.UserInfo;
 import com.oncrs.repositories.IUserInfoRepository;
@@ -32,9 +30,6 @@ public class UserService implements IUserService{
 	
 	@Autowired
 	private IPolicyDataService policyDataService;
-	
-	@Autowired
-	private IClaimDataService claimDataService;
 	
 	@Autowired
 	private IUserInfoRepository userRepo;
@@ -58,9 +53,9 @@ public class UserService implements IUserService{
 			throw new UserException(UserExceptionType.USER_ALREADY_EXISTS,
 									"UserId can't be admin");
 	
-		Optional<UserInfo> existingUser = this.userRepo.findByUserId(newUser.getUserId());
+		List<UserInfo> existingUser = this.userRepo.findByUserId(newUser.getUserId());
 		
-		if(existingUser.get() == null) {
+		if(existingUser.size()==0) {
 			newUser.setPassword(this.passwordEncoder.encode(newUser.getPassword()));
 			UserInfo userGen = this.userRepo.save(newUser);
 			return new UserInfoDTO(
@@ -140,7 +135,7 @@ public class UserService implements IUserService{
 	@Override
 	public UserInfoDTO createClaim(ClaimDataDTO claim) {
 		UserInfo user = this.currentUser(claim.getUserId());
-		this.policyDataService.claimPolicy(user.getUserNo(), claim);
+		this.policyDataService.claimPolicy(claim.getPolicyNumber(), claim);
 		user = this.currentUser(claim.getUserId());
 		return new UserInfoDTO(user.getUserId(),
 				  			   user.getRole(),
@@ -153,9 +148,12 @@ public class UserService implements IUserService{
 		UserInfo currentUser = this.currentUser(userId);
 		PolicyData policyData = currentUser.getPolicies()
 											.stream()
-											.filter(policy -> 
-												policy.getClaimPolicy()
-															.getClaimNo().equals(claimNumber))
+											.filter(policy ->{ 
+												if(policy.getClaimPolicy() != null &&
+												policy.getClaimPolicy().getClaimNo().equals(claimNumber))
+													return true;
+												return false;
+											})
 											.findFirst()
 											.orElseThrow(()->new PolicyException(
 													PolicyExceptionType.CLAIM_NOT_FOUND,
@@ -174,10 +172,12 @@ public class UserService implements IUserService{
 	}
 	
 	private UserInfo currentUser(String currentUserId) {
-		Optional<UserInfo> user = this.userRepo.findByUserId(currentUserId);
-		return user.orElseThrow(()->
-									new UserException(UserExceptionType.USER_NOT_FOUND,
-											"User with " + currentUserId + " not found"));
+		List<UserInfo> user = this.userRepo.findByUserId(currentUserId);
+		if( user.size()==0) {
+			throw new UserException(UserExceptionType.USER_NOT_FOUND,
+					"User with " + currentUserId + " not found");						
+		}
+		return user.get(0);
 	}
 	
 	
