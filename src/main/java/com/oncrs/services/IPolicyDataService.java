@@ -8,7 +8,7 @@ import com.oncrs.models.ClaimData;
 import com.oncrs.models.PolicyData;
 
 public interface IPolicyDataService {
-	List<PolicyData> getPolicies(String userId);
-	PolicyData addPolicyData(PolicyDataDTO policy);
+	List<PolicyData> getAllPolicies();
+	PolicyData addPolicyData(PolicyDataDTO policy, Long userNo);
 	ClaimData claimPolicy(ClaimDataDTO claimpolicy);
 }

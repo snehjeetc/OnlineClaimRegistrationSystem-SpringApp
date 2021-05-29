@@ -5,12 +5,14 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 import com.oncrs.dtos.ClaimDataDTO;
 import com.oncrs.dtos.PolicyDataDTO;
 import com.oncrs.models.ClaimData;
 import com.oncrs.models.PolicyData;
 
+@Service
 public class PolicyDataService implements IPolicyDataService {
 
 	@Autowired
@@ -29,20 +31,35 @@ public class PolicyDataService implements IPolicyDataService {
 	}
 	
 	@Override
-	public List<PolicyData> getPolicies(String userId) {
-		
-		return null;
+	public List<PolicyData> getAllPolicies() {
+		return this.policies;
 	}
 
 	@Override
-	public PolicyData addPolicyData(PolicyDataDTO policy) {
+	public PolicyData addPolicyData(PolicyDataDTO policy, Long userNo) {
+		PolicyData policyData = new PolicyData(autoGenerateToken.getAndIncrement(),
+											policy.getAccountNumber(), 
+											policy.getAccountNumber(),
+											userNo,
+											null
+										);
+		this.policies.add(policyData);
+		return policyData;
 		
-		return new PolicyData();
 	}
 	
 	@Override
 	public ClaimData claimPolicy(ClaimDataDTO claimpolicy) {
-		return new ClaimData();
+		ClaimData addedClaimToRepo = this.claimService.createClaim(claimpolicy);
+		PolicyData forPolicy = this.policies
+										.stream()
+										.filter(policy -> policy.getPolicyNumber().equals(claimpolicy.getPolicyNumber()))
+										.findFirst()
+										.orElse(null);
+		if(forPolicy == null)
+			return null;
+		forPolicy.setClaimPolicy(addedClaimToRepo);
+		return addedClaimToRepo;
 	}
 
 }

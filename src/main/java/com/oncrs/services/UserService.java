@@ -140,7 +140,7 @@ public class UserService implements IUserService{
 		UserInfo currentUser = this.currentUser(policy.getUserId());
 		if(currentUser == null)
 			return new UserInfoDTO();
-		PolicyData createdPolicy = this.policyDataService.addPolicyData(policy);
+		PolicyData createdPolicy = this.policyDataService.addPolicyData(policy, currentUser.getUserNo());
 		currentUser.addPolicyData(createdPolicy);
 		return new UserInfoDTO(currentUser.getUserId(), 
 							   currentUser.getRole(), 
@@ -177,7 +177,7 @@ public class UserService implements IUserService{
 		if(currentUser == null)
 			return new ClaimData();
 		
-		return this.claimDataService.getClaim(userId, claimNumber);
+		return this.claimDataService.getClaim(claimNumber);
 	}
 	
 	@Override

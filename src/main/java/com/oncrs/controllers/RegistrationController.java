@@ -32,11 +32,17 @@ public class RegistrationController {
 	
 	@GetMapping("/showusers")
 	public ResponseEntity<ResponseDTO> showUsers(){
-		return new ResponseEntity<>(new ResponseDTO(this.userService.getUsers(), "Fetched data"), HttpStatus.OK);
+		return new ResponseEntity<>(new ResponseDTO(
+											this.userService.getUsers(), 
+											"Fetched data"), 
+											HttpStatus.OK);
 	}
 	
 	@PostMapping("/policy")
 	public ResponseEntity<ResponseDTO> createPolicy(@RequestBody PolicyDataDTO policy){
-		return new ResponseEntity<>(new ResponseDTO(null, ""), HttpStatus.ACCEPTED); 
+		return new ResponseEntity<>(new ResponseDTO(
+										this.userService.createPolicy(policy), 
+										"Policy Created"), 
+										HttpStatus.ACCEPTED); 
 	}
 }

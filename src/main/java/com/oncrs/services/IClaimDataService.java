@@ -6,7 +6,7 @@ import com.oncrs.dtos.ClaimDataDTO;
 import com.oncrs.models.ClaimData;
 
 public interface IClaimDataService {
-	List<ClaimData> getAllClaims(String userid);
-	void createClaim(ClaimDataDTO claimPolicy);
-	ClaimData getClaim(String userid, Long claimNumber);
+	List<ClaimData> getAllClaims();
+	ClaimData createClaim(ClaimDataDTO claimPolicy);
+	ClaimData getClaim(Long claimNumber);
 }
