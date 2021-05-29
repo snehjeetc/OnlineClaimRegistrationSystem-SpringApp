@@ -16,6 +16,10 @@ import com.oncrs.auth.ApplicationUser;
 import com.oncrs.dtos.ClaimDataDTO;
 import com.oncrs.dtos.PolicyDataDTO;
 import com.oncrs.dtos.UserInfoDTO;
+import com.oncrs.exception.PolicyException;
+import com.oncrs.exception.PolicyException.PolicyExceptionType;
+import com.oncrs.exception.UserException;
+import com.oncrs.exception.UserException.UserExceptionType;
 import com.oncrs.models.ClaimData;
 import com.oncrs.models.PolicyData;
 import com.oncrs.models.UserInfo;
@@ -62,9 +66,9 @@ public class UserService implements IUserService{
 			this.userRepo.add(newUser);
 			userGen = new UserInfoDTO(newUser.getUserId(), newUser.getRole(), null);
 		}
-		else {
-			userGen = null;
-		}
+		else 
+			throw new UserException(UserExceptionType.USER_ALREADY_EXISTS,
+									"User with " + newUser.getUserId() + " already exists");
 		return userGen;
 	}
 
@@ -124,7 +128,8 @@ public class UserService implements IUserService{
 		
 		List<PolicyData> policiesOfUser = getPolicies(userid);
 		if(policiesOfUser == null)
-			return null;
+			throw new PolicyException(PolicyExceptionType.POLICIES_NOT_FOUND,
+										"No policies for the current user");
 		
 		List<ClaimData> userClaims = policiesOfUser
 											.stream()
@@ -138,8 +143,6 @@ public class UserService implements IUserService{
 	public UserInfoDTO createPolicy(PolicyDataDTO policy) {
 		
 		UserInfo currentUser = this.currentUser(policy.getUserId());
-		if(currentUser == null)
-			return new UserInfoDTO();
 		PolicyData createdPolicy = this.policyDataService.addPolicyData(policy, currentUser.getUserNo());
 		currentUser.addPolicyData(createdPolicy);
 		return new UserInfoDTO(currentUser.getUserId(), 
@@ -151,18 +154,16 @@ public class UserService implements IUserService{
 	public UserInfoDTO createClaim(ClaimDataDTO claim) {
 		
 		UserInfo currentUser = this.currentUser(claim.getUserId());
-		if(currentUser == null)
-			return new UserInfoDTO();
-		
 		PolicyData claimedPolicy = currentUser.getPolicies()
 												.stream()
 												.filter(policy -> 
 														claim.getPolicyNumber()
 																.equals(policy.getPolicyNumber()))
 												.findFirst()
-												.orElse(null);
-		if(claimedPolicy == null)
-			return new UserInfoDTO();
+												.orElseThrow(()->
+														new PolicyException(
+																PolicyExceptionType.POLICY_NOT_FOUND,
+																"Policy Number " + claim.getPolicyNumber() + " not found"));
 		
 		ClaimData claimed = this.policyDataService.claimPolicy(claim);
 		return new UserInfoDTO(currentUser.getUserId(), 
@@ -174,17 +175,12 @@ public class UserService implements IUserService{
 	public ClaimData getClaim(String userId, Long claimNumber) {
 		
 		UserInfo currentUser = this.currentUser(userId);
-		if(currentUser == null)
-			return new ClaimData();
-		
 		return this.claimDataService.getClaim(claimNumber);
 	}
 	
 	@Override
 	public UserInfoDTO generateReport(String userId) {
 		UserInfo currentUser = this.currentUser(userId);
-		if(currentUser==null)
-			return null;
 		return new UserInfoDTO(currentUser.getUserId(),
 							   currentUser.getRole(),
 							   currentUser.getPolicies());
@@ -195,7 +191,9 @@ public class UserService implements IUserService{
 				.stream()
 				.filter(user -> currentUserId.equals(user.getUserId()))
 				.findFirst()
-				.orElse(null);
+				.orElseThrow(()-> 
+					new UserException(UserExceptionType.USER_NOT_FOUND,
+									"User with " + currentUserId + " not found"));
 	}
 	
 	

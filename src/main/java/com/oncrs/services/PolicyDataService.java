@@ -9,6 +9,8 @@ import org.springframework.stereotype.Service;
 
 import com.oncrs.dtos.ClaimDataDTO;
 import com.oncrs.dtos.PolicyDataDTO;
+import com.oncrs.exception.PolicyException;
+import com.oncrs.exception.PolicyException.PolicyExceptionType;
 import com.oncrs.models.ClaimData;
 import com.oncrs.models.PolicyData;
 
@@ -55,9 +57,10 @@ public class PolicyDataService implements IPolicyDataService {
 										.stream()
 										.filter(policy -> policy.getPolicyNumber().equals(claimpolicy.getPolicyNumber()))
 										.findFirst()
-										.orElse(null);
-		if(forPolicy == null)
-			return null;
+										.orElseThrow(()->
+												new PolicyException(PolicyExceptionType.POLICIES_NOT_FOUND,
+																	"Policy with " + claimpolicy.getPolicyNumber() + " not found"));
+		
 		forPolicy.setClaimPolicy(addedClaimToRepo);
 		return addedClaimToRepo;
 	}

@@ -7,6 +7,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.springframework.stereotype.Service;
 
 import com.oncrs.dtos.ClaimDataDTO;
+import com.oncrs.exception.PolicyException;
+import com.oncrs.exception.PolicyException.PolicyExceptionType;
 import com.oncrs.models.ClaimData;
 
 @Service
@@ -48,7 +50,10 @@ public class ClaimDataService implements IClaimDataService {
 									.stream()
 									.filter(claim -> claimNumber.equals(claim.getClaimNo()))
 									.findFirst()
-									.orElse(null);
+									.orElseThrow(()->
+											new PolicyException(
+													PolicyExceptionType.CLAIM_NOT_FOUND,
+													"Claim with " + claimNumber + " not found"));
 		return claimData;
 	}
 	
